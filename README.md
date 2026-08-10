@@ -61,7 +61,7 @@ Every stage was built, broken, and debugged manually — see the [Troubleshootin
 ---
 <h2 id="architecture-overview">🏗️ Architecture Overview</h2>
 
-![Sơ đồ kiến trúc CI/CD GitOps trên AWS](1.png)
+![Sơ đồ kiến trúc CI/CD GitOps trên AWS](1.jpg)
 
 <h2 id="project-structure">📁 Project Structure</h2>
 
