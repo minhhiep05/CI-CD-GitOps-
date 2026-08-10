@@ -1,0 +1,47 @@
+stages:
+  - test
+  - scan
+  - build
+  - update-chart
+
+variables:
+  IMAGE: 100.62.178.51/myapp/myapp
+
+unit-test:
+  stage: test
+  image: node:20-alpine
+  script:
+    - npm install --no-audit --no-fund || true
+    - npm test
+
+sast-scan:
+  stage: scan
+  image: docker:24
+  script:
+    - echo "placeholder SAST scan - OK"
+
+build-image:
+  stage: build
+  image: docker:27
+  script:
+    - docker login 100.62.178.51 -u $HARBOR_USER -p $HARBOR_PASS
+    - docker build -t $IMAGE:$CI_COMMIT_TAG .
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL $IMAGE:$CI_COMMIT_TAG
+    - docker push $IMAGE:$CI_COMMIT_TAG
+  rules:
+    - if: '$CI_COMMIT_TAG'
+
+update-chart:
+  stage: update-chart
+  image: alpine:latest
+  script:
+    - apk add --no-cache git
+    - git clone http://root:$CHART_REPO_TOKEN@32.195.186.190/root/helm-chart.git
+    - cd helm-chart
+    - 'sed -i "s/tag:.*/tag: \"$CI_COMMIT_TAG\"/" values.yaml || echo "tag: \"$CI_COMMIT_TAG\"" >> values.yaml'
+    - git config user.email "ci@gitlab.local"
+    - git config user.name "GitLab CI"
+    - git commit -am "update image tag to $CI_COMMIT_TAG" || echo "no changes"
+    - git push
+  rules:
+    - if: '$CI_COMMIT_TAG'

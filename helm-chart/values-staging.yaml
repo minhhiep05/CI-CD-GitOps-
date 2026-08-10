@@ -1,0 +1,4 @@
+replicaCount: 2
+image:
+  repository: 100.62.178.51/myapp/myapp
+  tag: "v0.1.6"

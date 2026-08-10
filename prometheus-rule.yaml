@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: myapp-alerts
+  namespace: monitoring
+  labels: { release: kube-prometheus-stack }
+spec:
+  groups:
+  - name: myapp
+    rules:
+    - alert: PodCrashLooping
+      expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+      for: 5m
+      labels: { severity: warning }
+      annotations:
+        summary: "Pod {{ $labels.pod }} in {{ $labels.namespace }} is crash looping"
