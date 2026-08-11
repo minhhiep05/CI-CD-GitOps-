@@ -1,21 +1,19 @@
-# ☸️ CI/CD GitOps Pipeline: Terraform + Kubernetes (kubeadm) HA + GitLab + Harbor + ArgoCD + Observability on AWS
+# ☸️ Production-Grade GitOps CI/CD Platform on AWS (HA Kubernetes + GitLab + Harbor + ArgoCD)
 
-[![Terraform](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square&logo=terraform&logoColor=white)](#-verification-checklist)
+[![GitLab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/doanhiep169/app-code?branch=main&style=flat-square&logo=gitlab&logoColor=white)](https://gitlab.com/doanhiep169/app-code/-/commits/main)
 
 [![AWS](https://img.shields.io/badge/AWS-232F3E?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/)
-[![Terraform](https://img.shields.io/badge/Terraform-7B42BC?style=for-the-badge&logo=terraform&logoColor=white)](https://www.terraform.io/)
+[![Terraform](https://img.shields.io/badge/Terraform-844FBA?style=for-the-badge&logo=terraform&logoColor=white)](https://www.terraform.io/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
-[![Calico](https://img.shields.io/badge/Calico-4E4A4B?style=for-the-badge&logo=projectcalico&logoColor=white)](https://www.tigera.io/project-calico/)
-[![GitLab](https://img.shields.io/badge/GitLab_CE-FC6D26?style=for-the-badge&logo=gitlab&logoColor=white)](https://about.gitlab.com/)
-[![Harbor](https://img.shields.io/badge/Harbor-60B932?style=for-the-badge&logo=harbor&logoColor=white)](https://goharbor.io/)
 [![ArgoCD](https://img.shields.io/badge/Argo_CD-EF7B4D?style=for-the-badge&logo=argo&logoColor=white)](https://argo-cd.readthedocs.io/)
+[![GitLab](https://img.shields.io/badge/GitLab-FC6D26?style=for-the-badge&logo=gitlab&logoColor=white)](https://gitlab.com/)
+[![Harbor](https://img.shields.io/badge/Harbor-60B932?style=for-the-badge&logo=harbor&logoColor=white)](https://goharbor.io/)
 [![Helm](https://img.shields.io/badge/Helm-0F1626?style=for-the-badge&logo=helm&logoColor=white)](https://helm.sh/)
 [![Let's Encrypt](https://img.shields.io/badge/Let's_Encrypt-003A70?style=for-the-badge&logo=letsencrypt&logoColor=white)](https://letsencrypt.org/)
 [![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)](https://prometheus.io/)
 [![Grafana](https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)](https://grafana.com/)
-[![Loki](https://img.shields.io/badge/Loki-F5A800?style=for-the-badge&logo=grafana&logoColor=white)](https://grafana.com/oss/loki/)
-[![Velero](https://img.shields.io/badge/Velero-2F7DC3?style=for-the-badge&logo=veleroio&logoColor=white)](https://velero.io/)
-[![Telegram](https://img.shields.io/badge/Telegram_Alerts-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
+[![Velero](https://img.shields.io/badge/Velero-2f6de1?style=for-the-badge&logo=veeam&logoColor=white)](https://velero.io/)
+[![Sealed Secrets](https://img.shields.io/badge/Sealed_Secrets-006D5B?style=for-the-badge)](https://github.com/bitnami-labs/sealed-secrets)
 
 <details>
 <summary><strong>📑 Table of Contents (Click to expand)</strong></summary>
@@ -27,10 +25,18 @@
 - 🛠️ [Technologies Used](#technologies-used)
 - ☁️ [AWS Infrastructure Setup](#aws-infrastructure-setup)
 - 💻 [Quick Start](#quick-start)
-- ✅ [Verification Checklist (19 items)](#verification-checklist)
-- 🔒 [HTTPS Everywhere](#https-everywhere)
-- 💾 [Backup & Disaster Recovery](#backup-disaster-recovery)
+- ✅ [1. Highly Available 8-Node Infrastructure](#step-1)
+- 🔐 [2. Secretless Control Plane (IAM Role, no static keys)](#step-2)
+- 🔒 [3. Custom Domain & Valid HTTPS Certificates](#step-3)
+- 🚀 [4. GitLab CI/CD Pipeline (test → scan → build → update-chart)](#step-4)
+- 🐳 [5. Private Registry with Vulnerability Scanning](#step-5)
+- 🔄 [6. GitOps Multi-Environment Delivery via ArgoCD](#step-6)
+- 🔑 [7. Secrets Management with Sealed Secrets](#step-7)
+- 📊 [8. Monitoring & Alerting (Prometheus/Grafana/Telegram)](#step-8)
+- 💾 [9. Disaster Recovery with Velero](#step-9)
+- ✅ [Full System Checklist](#full-system-checklist)
 - ⚠️ [Troubleshooting & Lessons Learned](#troubleshooting-lessons-learned)
+- 🎓 [Lessons Learned Summary](#lessons-learned-summary)
 - 🔮 [Production Gaps & Future Improvements](#future-production-improvements)
 - 👤 [Author](#author)
 
@@ -40,250 +46,317 @@
 
 <h2 id="introduction">📌 Introduction</h2>
 
-This repository documents a complete, self-built **HA CI/CD GitOps pipeline** deployed on **8 AWS EC2 instances**, fully provisioned from scratch with **Terraform** — no managed Kubernetes service (EKS), no managed CI service, no managed registry.
+This repository documents an end-to-end, self-managed **GitOps CI/CD platform** built from scratch on **AWS EC2**, going well beyond a toy 2-node cluster demo. It provisions a **highly available 3-master Kubernetes cluster** (via `kubeadm`, spread across 3 Availability Zones behind a Network Load Balancer) plus dedicated **GitLab CE** and **Harbor** VMs — 8 EC2 instances in total, fully defined in Terraform.
 
-The project demonstrates end-to-end DevOps practice at production-adjacent scale: **Infrastructure as Code** (VPC, Security Groups, NLB, EC2 — all via Terraform), a **highly-available Kubernetes control plane** (3 `kubeadm` master nodes across 3 Availability Zones behind a Network Load Balancer), **self-hosted CI/CD** (GitLab CE + GitLab Runner + Trivy vulnerability scanning), a **self-hosted container registry** (Harbor), **GitOps continuous delivery** (ArgoCD, Sealed Secrets, 3 isolated environments), **automated HTTPS** everywhere (cert-manager + Let's Encrypt for in-cluster services, Certbot for standalone EC2 services), **full-stack observability** (Prometheus, Grafana, Loki, Alertmanager → Telegram), and **disaster recovery** (Velero backup/restore to S3).
+On top of the infrastructure, the pipeline drives a complete **GitOps loop**: every Git tag triggers a GitLab CI pipeline that tests, security-scans (Trivy), builds and pushes an image to a private Harbor registry, then auto-commits the new tag into a Helm chart repo — which **ArgoCD** picks up and syncs to three isolated environments (`dev` / `staging` / `prod`) via a single `ApplicationSet`. Secrets are never stored in plaintext in Git (**Sealed Secrets**), the cluster is observed end-to-end with **Prometheus/Grafana** and **Telegram alerting**, and the whole platform is protected by **Velero** backup/restore against etcd, EC2, and human-error disasters.
 
-Every stage was built, broken, and debugged manually — see the [Troubleshooting section](#troubleshooting-lessons-learned) for a curated set of the real-world issues encountered and resolved along the way (the full internal incident log runs past 60 documented issues across networking, Terraform/HCL, Kubernetes CNI, GitOps, and observability).
+The entire journey — including every real error encountered along the way (Terraform HCL syntax, NLB hairpinning, containerd registry config, ArgoCD CRD size limits, Sealed Secrets namespace scoping, Let's Encrypt HTTP-01 challenges, etcd quorum loss on resume, DNS TTL caching, and more) — is captured in the [Troubleshooting & Lessons Learned](#troubleshooting-lessons-learned) section as a real deployment log, not just a "happy path" guide.
 
 ---
 
 <h2 id="key-features">🚀 Key Features</h2>
 
-*   🏗️ **Infrastructure as Code, end to end**: 1 control VM + 3 HA master nodes (multi-AZ) + 2 worker nodes + GitLab VM + Harbor VM — VPC, subnets, Security Groups, Network Load Balancer, IAM, and all 8 EC2 instances declared in Terraform, state backed by S3 + DynamoDB locking.
-*   ☸️ **Self-managed HA Kubernetes**: cluster bootstrapped with `kubeadm`, 3 control-plane nodes fronted by an internal NLB for the API server, Calico as CNI, `ingress-nginx` running as a `hostNetwork` DaemonSet to bind ports 80/443 directly on worker nodes.
-*   🔁 **Fully Automated CI/CD Loop**: `git push` → GitLab CI (4-stage pipeline: build → Trivy scan → push to Harbor → update Helm chart) → ArgoCD detects the new image tag and auto-syncs — zero manual deployment steps.
-*   🔐 **GitOps-native Secrets**: Sealed Secrets encrypts credentials before they ever touch Git, safely committed and decrypted only inside the target cluster — with per-namespace sealing across `dev`/`staging`/`prod`.
-*   🌐 **Automated HTTPS Everywhere**: `cert-manager` + Let's Encrypt for ArgoCD (in-cluster `ClusterIssuer`), Certbot-managed TLS for GitLab CE and Harbor (standalone EC2 services) — all 3 admin UIs served over valid, browser-trusted certificates.
-*   📊 **Full-stack Observability with Alerting**: `kube-prometheus-stack` (Prometheus + Grafana) for metrics, Loki + Promtail for centralized logs, and Alertmanager wired to a Telegram bot for real-time incident notifications.
-*   💾 **Tested Disaster Recovery**: Velero backs up the cluster to S3 on a schedule, with a verified restore drill (delete → restore → confirm pods recover) as part of the acceptance checklist.
+* 🏗️ **HA Kubernetes Control Plane**: 3 master nodes spread across 3 AZs, fronted by an internal AWS Network Load Balancer with cross-zone load balancing, so the API server survives a single AZ or master failure.
+* 🔐 **Secretless Automation VM**: A dedicated `control-vm` (replacing a personal laptop) drives Terraform/`kubectl`/Helm using an **IAM Instance Role** — zero static AWS access keys stored anywhere.
+* 🔄 **Full GitOps Loop**: `git tag` → GitLab CI (test → scan → build → update-chart) → Harbor registry → auto-commit to Helm chart repo → **ArgoCD ApplicationSet** fans out to `dev`/`staging`/`prod` automatically.
+* 🛡️ **Real HTTPS Everywhere**: `cert-manager` + Let's Encrypt HTTP-01 for the app ingress, plus a separate, fully documented workflow to enable real TLS certificates for the internal tooling (GitLab, Harbor, ArgoCD) on a dedicated admin domain.
+* 🧪 **Shift-Left Security**: Every image build is scanned with **Trivy** (`--severity HIGH,CRITICAL`) inside the pipeline before it's ever pushed to the registry.
+* 🔑 **GitOps-Safe Secrets**: Kubernetes Secrets are sealed per-namespace with **Sealed Secrets** (`kubeseal`) before being committed to Git — safe to store in a public or shared repo.
+* 📊 **Full-Stack Observability**: `kube-prometheus-stack` (Prometheus + Grafana + Alertmanager) with a minimum viable alert set (`PodCrashLooping`, etc.) routed to **Telegram** in real time.
+* 💾 **Disaster Recovery, Actually Tested**: **Velero** scheduled backups to S3 with filesystem-level volume backup (no VolumeSnapshotClass required on a self-managed kubeadm cluster), validated with a real delete → restore drill.
 
 ---
+
 <h2 id="architecture-overview">🏗️ Architecture Overview</h2>
 
 ![Sơ đồ kiến trúc CI/CD GitOps trên AWS](images/1.jpg)
+
+---
 
 <h2 id="project-structure">📁 Project Structure</h2>
 
 ```text
 gitops-lab-aws/
-├── README.md
-├── docs/
-│   └── screenshots/                    # 19 verification screenshots (checklist below)
-│
-├── terraform/                          # Infrastructure as Code
-│   ├── prep.sh                         # Bootstrap script for control-vm
-│   ├── versions.tf                     # Provider + backend (S3 + DynamoDB lock)
-│   ├── variables.tf                    # admin_cidr, vpc_cidr, region...
-│   ├── network.tf                      # VPC, public subnets (3 AZ), IGW, route tables
-│   ├── security_groups.tf              # SG "k8s" + SG "gitlab_harbor"
-│   ├── iam.tf                          # IAM role/instance profile for nodes
-│   ├── keypair.tf                      # EC2 key pair for Terraform-managed nodes
-│   ├── instances.tf                    # 3 master + 2 worker + gitlab + harbor EC2
-│   └── loadbalancer.tf                 # Internal NLB (target group + listener) for API server
-│
-├── helm-chart/                         # GitOps repo watched by ArgoCD
+├── terraform/
+│   ├── versions.tf          # Provider pin + S3 backend (locked with DynamoDB)
+│   ├── variables.tf         # Region, instance types, admin_cidr
+│   ├── network.tf           # VPC + 3 public subnets across 3 AZs
+│   ├── security_groups.tf   # Least-privilege SGs (k8s, gitlab_harbor, control-vm)
+│   ├── iam.tf                # control-vm role + node role (Velero, no static creds)
+│   ├── loadbalancer.tf      # Internal NLB for the K8s API server (cross-zone)
+│   ├── instances.tf         # 3 master + 2 worker EC2s, spread across AZs
+│   └── keypair.tf
+├── app-code/                 # Application source
+│   ├── Dockerfile             # Multi-stage, npm stripped from runtime image
+│   ├── src/
+│   └── .gitlab-ci.yml         # test → sast-scan → build (Trivy) → update-chart
+├── helm-chart/                # GitOps source of truth, watched by ArgoCD
 │   ├── Chart.yaml
 │   ├── values.yaml
 │   ├── values-dev.yaml
 │   ├── values-staging.yaml
 │   ├── values-prod.yaml
-│   ├── templates/
-│   └── sealed-secret-<env>.yaml        # Sealed per namespace (dev/staging/prod)
-│
-├── app-code/                           # Application source (CI-facing repo)
-│   ├── .gitlab-ci.yml                  # 4-stage pipeline: build → scan → push → update-chart
-│   ├── Dockerfile
-│   └── src/
-│
-└── monitoring/
-    ├── cluster-issuer.yaml             # cert-manager ClusterIssuer (Let's Encrypt)
-    ├── prometheus-rule.yaml            # Custom PrometheusRule (PodCrashLooping)
-    └── alertmanager-config.yaml        # Alertmanager → Telegram receiver override
+│   └── templates/
+└── argocd/
+    └── applicationset.yaml    # Fans out to myapp-dev / myapp-staging / myapp-prod
 ```
-
-> **Note:** in the live environment, `app-code/` and `helm-chart/` are separate GitLab repositories — the CI pipeline in `app-code` auto-commits the new image tag into `helm-chart`, which ArgoCD watches independently. They are shown together here for readability.
 
 ---
 
 <h2 id="technologies-used">🛠️ Technologies Used</h2>
 
-| Layer | Technology | Description |
+| Component | Technology | Description |
 |---|---|---|
-| **Cloud Provider** | ![AWS](https://img.shields.io/badge/AWS-232F3E?style=flat-square&logo=amazon-aws&logoColor=white) | 8x EC2 across 3 Availability Zones — control-vm, 3 master, 2 worker, GitLab, Harbor |
-| **Infrastructure as Code** | ![Terraform](https://img.shields.io/badge/Terraform-7B42BC?style=flat-square&logo=terraform&logoColor=white) | VPC, subnets, Security Groups, IAM, NLB, and all 8 EC2 instances; state on S3 + DynamoDB lock |
-| **Orchestration** | ![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white) | Self-managed HA cluster via `kubeadm`, 3-node control plane behind an internal NLB |
-| **CNI** | ![Calico](https://img.shields.io/badge/Calico-4E4A4B?style=flat-square&logo=projectcalico&logoColor=white) | Pod networking + BGP, with `source_dest_check=false` on EC2 ENIs for correct routing |
-| **Ingress** | ![NGINX](https://img.shields.io/badge/ingress--nginx-009639?style=flat-square&logo=nginx&logoColor=white) | `hostNetwork` + `DaemonSet` — binds ports 80/443 directly on worker nodes |
-| **CI Server** | ![GitLab](https://img.shields.io/badge/GitLab_CE-FC6D26?style=flat-square&logo=gitlab&logoColor=white) | Self-hosted GitLab CE + Runner, 4-stage pipeline with Trivy vulnerability scanning |
-| **Container Registry** | ![Harbor](https://img.shields.io/badge/Harbor-60B932?style=flat-square&logo=harbor&logoColor=white) | Self-hosted Harbor, per-project access control |
-| **GitOps / CD** | ![ArgoCD](https://img.shields.io/badge/Argo_CD-EF7B4D?style=flat-square&logo=argo&logoColor=white) | Auto-Sync + Self-Heal across 3 isolated environments (dev/staging/prod) |
-| **Secrets Management** | ![SealedSecrets](https://img.shields.io/badge/Sealed_Secrets-1A73E8?style=flat-square&logo=kubernetes&logoColor=white) | `kubeseal` — secrets encrypted before hitting Git, sealed per namespace |
-| **Package Management** | ![Helm](https://img.shields.io/badge/Helm-0F1626?style=flat-square&logo=helm&logoColor=white) | Helm charts for `kube-prometheus-stack`, `loki-stack`, Calico, ingress-nginx |
-| **SSL/TLS** | ![Let's Encrypt](https://img.shields.io/badge/Let's_Encrypt-003A70?style=flat-square&logo=letsencrypt&logoColor=white) | `cert-manager` (in-cluster, ArgoCD) + Certbot (standalone EC2, GitLab/Harbor) |
-| **Monitoring** | ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat-square&logo=prometheus&logoColor=white) | `kube-prometheus-stack` — cluster + node + app metrics |
-| **Visualization** | ![Grafana](https://img.shields.io/badge/Grafana-F46800?style=flat-square&logo=grafana&logoColor=white) | Cluster resource dashboards + custom Loki log dashboard |
-| **Log Aggregation** | ![Loki](https://img.shields.io/badge/Loki-F5A800?style=flat-square&logo=grafana&logoColor=white) | Loki + Promtail, queried via LogQL in Grafana Explore |
-| **Alerting** | ![Telegram](https://img.shields.io/badge/Telegram-26A5E4?style=flat-square&logo=telegram&logoColor=white) | Alertmanager → Telegram Bot for real-time notifications |
-| **Backup / DR** | ![Velero](https://img.shields.io/badge/Velero-2F7DC3?style=flat-square&logo=veleroio&logoColor=white) | Scheduled backups to S3, filesystem-based (no VolumeSnapshotClass needed), tested restore drill |
+| **IaC** | ![Terraform](https://img.shields.io/badge/Terraform-844FBA?style=flat-square&logo=terraform&logoColor=white) | 8 EC2 instances, VPC/subnets, SGs, IAM roles, NLB — S3 backend with DynamoDB state locking |
+| **Cloud Provider** | ![AWS](https://img.shields.io/badge/AWS-232F3E?style=flat-square&logo=amazon-aws&logoColor=white) | `us-east-1`, 3 AZs, `c7i-flex.large` (K8s nodes) / `m7i-flex.large` (GitLab CE) |
+| **Orchestration** | ![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white) | HA cluster via `kubeadm` (3 master / 2 worker), CNI powered by Calico |
+| **Load Balancing** | AWS NLB | Internal, cross-zone-enabled NLB fronting the API server on port 6443 |
+| **CI/CD** | ![GitLab](https://img.shields.io/badge/GitLab-FC6D26?style=flat-square&logo=gitlab&logoColor=white) | Self-hosted GitLab CE + shell/Docker executor Runner |
+| **Container Registry** | ![Harbor](https://img.shields.io/badge/Harbor-60B932?style=flat-square&logo=harbor&logoColor=white) | Self-hosted private registry, project-scoped access |
+| **GitOps CD** | ![ArgoCD](https://img.shields.io/badge/Argo_CD-EF7B4D?style=flat-square&logo=argo&logoColor=white) | `ApplicationSet` driving 3 independent environments from one Helm chart |
+| **Package Management** | ![Helm](https://img.shields.io/badge/Helm-0F1626?style=flat-square&logo=helm&logoColor=white) | Per-environment `values-*.yaml` overrides |
+| **Ingress & TLS** | ![Nginx](https://img.shields.io/badge/Nginx-009639?style=flat-square&logo=nginx&logoColor=white) ![Let's Encrypt](https://img.shields.io/badge/Let's_Encrypt-003A70?style=flat-square&logo=letsencrypt&logoColor=white) | `hostNetwork` DaemonSet Ingress + `cert-manager` HTTP-01 challenges |
+| **Secrets Management** | Sealed Secrets (`kubeseal`) | Per-namespace encrypted secrets, safe to commit to Git |
+| **Security Scanning** | ![Trivy](https://img.shields.io/badge/Trivy-1904DA?style=flat-square&logo=aqua&logoColor=white) | HIGH/CRITICAL CVE gate inside the `build-image` CI job |
+| **Monitoring** | ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat-square&logo=prometheus&logoColor=white) ![Grafana](https://img.shields.io/badge/Grafana-F46800?style=flat-square&logo=grafana&logoColor=white) | `kube-prometheus-stack`, alerts routed to Telegram |
+| **Disaster Recovery** | ![Velero](https://img.shields.io/badge/Velero-2f6de1?style=flat-square) | Scheduled S3 backups with filesystem-level volume backup (no CSI snapshot CRDs needed) |
 
 ---
 
-<h2 id="aws-infrastructure-setup">☁️ AWS Infrastructure Setup</h2>
+<h2 id="aws-infrastructure-setup">☁️ AWS Infrastructure & Kubernetes Bootstrapping</h2>
 
-### 1. Bootstrap the control-vm (once, via AWS Console)
-A dedicated `control-vm` (`t3.micro`) runs all subsequent Terraform/kubectl/helm commands — created manually once via the Console with a dedicated Security Group and an `AdministratorAccess` IAM Role, since Terraform can't create the role it needs to run itself.
+### 1. Control VM (replaces a personal laptop)
+A dedicated `control-vm` EC2 instance (in the same VPC as the cluster) runs Terraform, `kubectl`, `helm`, `aws-cli`, and `kubeseal`. It authenticates to AWS purely through an **attached IAM Instance Role** — no `aws configure`, no static access keys anywhere on disk.
 
-> ⚠️ **Must be created in the same VPC that Terraform provisions in step 2** — a control-vm left in the default VPC cannot route to the Kubernetes NLB/nodes, and every Security Group rule referencing it will silently fail.
+### 2. Terraform-Provisioned Infrastructure
+* **VPC**: `10.0.0.0/16` with 3 public subnets, one per Availability Zone.
+* **Kubernetes nodes**: 3 masters (1 per AZ) + 2 workers, `c7i-flex.large` (2 vCPU / 4GB, compute-optimized).
+* **GitLab CE**: 1 EC2, `m7i-flex.large` (8GB RAM — verified minimum after `t3.medium` caused multi-minute freezes during `gitlab-ctl reconfigure`), attached Elastic IP.
+* **Harbor**: 1 EC2, `c7i-flex.large`, attached Elastic IP.
+* **Network Load Balancer**: internal, `enable_cross_zone_load_balancing = true`, fronting the API server on port 6443 so any master can fail without breaking `kubeadm join`/`kubectl`.
+* **Security Groups**: least-privilege, self-referencing rules for the K8s control-plane/etcd/kubelet port ranges; a separate SG for the GitLab/Harbor VMs; SSH restricted to `admin_cidr` only.
+* **State**: S3 backend with `encrypt = true`, locked via a DynamoDB table.
 
-### 2. Provision the 8-EC2 infrastructure with Terraform
-```bash
-cd terraform/
-terraform init
-terraform plan
-terraform apply
-```
-Creates: 1 VPC (3 public subnets across 3 AZs), 2 Security Groups (`k8s`, `gitlab_harbor`), 1 internal Network Load Balancer for the API server, and all 8 EC2 instances.
-
-### 3. Bootstrap the Kubernetes cluster
-```bash
-# On each master (kubeadm init on master-1, kubeadm join --control-plane on master-2/3):
-sudo kubeadm init --control-plane-endpoint "<nlb-dns>:6443" --upload-certs --pod-network-cidr=192.168.0.0/16
-
-# Install Calico CNI:
-kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
-kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/custom-resources.yaml
-
-# Join workers:
-sudo kubeadm join <nlb-dns>:6443 --token <token> --discovery-token-ca-cert-hash sha256:<hash>
-```
+### 3. Kubernetes Cluster Bootstrap (HA)
+1. Prepare all 5 K8s nodes (disable swap, sysctl, `containerd`, `kubeadm`/`kubelet`/`kubectl`).
+2. `kubeadm init --control-plane-endpoint <NLB DNS>:6443 --upload-certs` on `master-1`.
+3. `kubeadm join --control-plane ...` on `master-2`/`master-3` against the NLB endpoint.
+4. `kubeadm join ...` on both workers.
+5. Deploy Calico as the pod network CNI.
+6. Point DNS (Route53) at the Ingress, install NGINX Ingress in `hostNetwork` mode, and issue certificates with `cert-manager` + Let's Encrypt.
 
 ---
 
 <h2 id="quick-start">💻 Quick Start</h2>
 
 ### Prerequisites
-* AWS account with sufficient EC2/VPC/IAM quota
-* A registered domain with DNS access
-* `terraform`, `kubectl`, `helm`, `kubeseal` installed on the control-vm
+* AWS account with permissions to create VPC/EC2/IAM/S3/DynamoDB resources
+* A registered domain (for Route53 + Let's Encrypt HTTP-01)
+* `terraform`, `kubectl`, `helm`, `kubeseal` (all installed automatically on `control-vm` in Step 0)
 
-### Deploy the full stack
+### Step 1 — Provision infrastructure
 ```bash
-# 1. Infrastructure
-cd terraform && terraform apply
+terraform init
+terraform apply
+```
 
-# 2. Kubernetes + CNI + Ingress (see AWS Infrastructure Setup above)
+### Step 2 — Bootstrap the HA cluster
+```bash
+sudo kubeadm init --control-plane-endpoint <k8s_api_lb_dns>:6443 --upload-certs
+# join master-2, master-3, worker-1, worker-2 using the printed commands
+```
 
-# 3. cert-manager + ClusterIssuer
-helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set installCRDs=true
-kubectl apply -f monitoring/cluster-issuer.yaml
-
-# 4. GitLab CE + Harbor (on their dedicated EC2 instances)
-curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo bash
-sudo EXTERNAL_URL="https://gitlab.yourdomain.com" apt install -y gitlab-ce
-
-# 5. ArgoCD + Sealed Secrets
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-helm install sealed-secrets sealed-secrets/sealed-secrets -n kube-system
-
-# 6. Observability
-helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack -n monitoring --create-namespace
-helm install loki grafana/loki-stack -n monitoring --set loki.image.tag=2.9.3
-
-# 7. Push code — the pipeline takes it from here
-git push
+### Step 3 — Ship code through the GitOps loop
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+# GitLab CI: test → sast-scan → build (Trivy) → update-chart
+# ArgoCD auto-syncs myapp-dev / myapp-staging / myapp-prod
 ```
 
 ---
 
-<h2 id="verification-checklist">✅ Verification Checklist (19 items)</h2>
+<h2 id="step-1">✅ 1. Highly Available 8-Node Infrastructure</h2>
 
-Every item below was captured as a screenshot as proof of a working system:
-
-| # | Item | Verified via |
-|---|---|---|
-| 1 | 8-EC2 infrastructure, HA across 3 AZ | AWS Console → EC2 → Instances |
-| 2 | Kubernetes cluster `Ready` | `kubectl get nodes -o wide` |
-| 3 | NLB healthy — all 3 masters | AWS Console → Target Groups |
-| 4 | CI pipeline — 4 stages Passed | GitLab UI → CI/CD → Pipelines |
-| 5 | Trivy vulnerability scan | Pipeline job log |
-| 6 | Image pushed to Harbor | Harbor UI → Repositories |
-| 7 | ArgoCD Apps Synced + Healthy | ArgoCD UI / `kubectl get applications -n argocd` |
-| 8 | 3 environments actually running | `kubectl get pods -n myapp-{dev,staging,prod}` |
-| 9 | Secrets encrypted in Git | GitLab UI → `sealed-secret.yaml` |
-| 10 | Grafana cluster dashboard | Grafana UI |
-| 11 | Alert delivered to Telegram | Telegram screenshot |
-| 12 | Velero backup `Completed` | `velero backup get` |
-| 13-14 | Restore drill (before/after) | `kubectl delete` → `velero restore create` → `kubectl get pods` |
-| 15-17 | Valid HTTPS — GitLab / Harbor / ArgoCD | Browser padlock |
-| 18 | `Certificate` Ready (cert-manager) | `kubectl get certificate -A` |
-| 19 | Ingress pods on correct worker nodes | `kubectl get pods -n ingress-nginx -o wide` |
-
----
-
-<h2 id="https-everywhere">🔒 HTTPS Everywhere</h2>
-
-Three different TLS provisioning paths, matched to where each service actually runs:
-
-* **ArgoCD** (in-cluster) → `cert-manager` + a `ClusterIssuer` watching an `Ingress` resource, HTTP-01 challenge.
-* **GitLab CE / Harbor** (standalone EC2, outside the cluster) → Certbot/Nginx issuing Let's Encrypt certs directly on the host — outside the scope of `kubectl get certificate`, but verified independently via the browser padlock.
-
-> A DaemonSet running with `hostNetwork: true` (like `ingress-nginx`) does **not** get scheduled onto control-plane nodes by default (`NoSchedule` taint) — any DNS record pointing at an in-cluster Ingress must resolve to a **worker** node's IP, confirmed via `kubectl get pods -n ingress-nginx -o wide` before touching DNS.
-
----
-
-<h2 id="backup-disaster-recovery">💾 Backup & Disaster Recovery</h2>
-
-Velero backs up the cluster to S3 using filesystem-level backup (`--default-volumes-to-fs-backup`), since a self-managed `kubeadm` cluster has no `VolumeSnapshotClass` out of the box:
+3 master nodes rebooted or lost individually should not take down the API server. Verify all nodes are `Ready` and spread across distinct AZs:
 
 ```bash
-velero backup create myapp-backup --include-namespaces myapp-dev,myapp-staging,myapp-prod
-velero backup get
+kubectl get nodes -o wide
+```
 
-# Restore drill:
-kubectl delete deployment myapp-dev -n myapp-dev
-velero restore create --from-backup myapp-backup --include-namespaces myapp-dev
-velero restore get
+![8 EC2 instances in the AWS Console](docs/screenshots/01-ec2-instances.png)
+![Kubernetes nodes Ready](docs/screenshots/02-k8s-nodes-ready.png)
+![NLB target group healthy across all 3 masters](docs/screenshots/03-k8s-nlb-targets-healthy.png)
+
+<h2 id="step-2">🔐 2. Secretless Control Plane (IAM Role, no static keys)</h2>
+
+```bash
+aws sts get-caller-identity
+# → arn:aws:sts::<account>:assumed-role/control-vm-role/...
+```
+No `~/.aws/credentials` file with a static access key should exist on `control-vm`.
+
+<h2 id="step-3">🔒 3. Custom Domain & Valid HTTPS Certificates</h2>
+
+The application is exposed over HTTPS with a Let's Encrypt certificate automatically issued and renewed by `cert-manager` via HTTP-01 challenges:
+
+```bash
+curl https://<your-domain>
+kubectl get certificate -A
+```
+
+![cert-manager Certificate READY: True](docs/screenshots/18-certificate-ready.png)
+![Ingress-nginx pods scheduled on worker nodes only](docs/screenshots/19-ingress-pods-wide.png)
+
+A second, separately documented pass (see NHÓM 9 in the deployment log) enables **real TLS on the internal admin tools** (GitLab, Harbor, ArgoCD) on a dedicated admin subdomain.
+
+| GitLab | Harbor | ArgoCD |
+|---|---|---|
+| ![HTTPS GitLab](docs/screenshots/15-https-gitlab.png) | ![HTTPS Harbor](docs/screenshots/16-https-harbor.png) | ![HTTPS ArgoCD](docs/screenshots/17-https-argocd.png) |
+
+<h2 id="step-4">🚀 4. GitLab CI/CD Pipeline</h2>
+
+Every tagged commit runs all 4 stages — `test → sast-scan → build → update-chart` — the last of which commits the new image tag back into the Helm chart repo automatically.
+
+![GitLab pipeline — all 4 stages passed](docs/screenshots/04-gitlab-pipeline-passed.png)
+
+<h2 id="step-5">🐳 5. Private Registry with Vulnerability Scanning</h2>
+
+The `build-image` job runs Trivy inside the pipeline and fails the build on any `HIGH`/`CRITICAL` CVE **before** the image is pushed to Harbor:
+```bash
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest \
+  image --exit-code 1 --severity HIGH,CRITICAL $IMAGE:$CI_COMMIT_TAG
+```
+
+![Trivy scan log inside the pipeline](docs/screenshots/05-trivy-scan-log.png)
+![Harbor repositories with pushed tags](docs/screenshots/06-harbor-repositories.png)
+
+<h2 id="step-6">🔄 6. GitOps Multi-Environment Delivery via ArgoCD</h2>
+
+A single `ApplicationSet` generates 3 independent ArgoCD Applications from one Helm chart:
+```bash
+kubectl get applications -n argocd
+# myapp-dev       Synced   Healthy
+# myapp-staging   Synced   Healthy
+# myapp-prod      Synced   Healthy
+```
+
+![ArgoCD — 3 Applications Synced & Healthy](docs/screenshots/07-argocd-applications.png)
+![kubectl get applications -n argocd — 3 environments](docs/screenshots/08-k8s-multi-environment.png)
+
+<h2 id="step-7">🔑 7. Secrets Management with Sealed Secrets</h2>
+
+Secrets are sealed per-namespace before being committed — the repo only ever contains `SealedSecret` objects with `encryptedData`, never plaintext:
+```bash
+kubeseal --format yaml --controller-name=sealed-secrets --controller-namespace=kube-system \
+  < secret.yaml > sealed-secret.yaml
+```
+
+![sealed-secret.yaml committed to the helm-chart repo — encryptedData, not plaintext](docs/screenshots/09-sealedsecret-yaml.png)
+
+<h2 id="step-8">📊 8. Monitoring & Alerting</h2>
+
+`kube-prometheus-stack` ships Prometheus, Grafana, and Alertmanager, with a `PodCrashLooping` alert wired to Telegram for real-time notification.
+
+![Grafana cluster dashboard](docs/screenshots/10-grafana-dashboard.png)
+![Alertmanager notification received in Telegram](docs/screenshots/11-telegram-alert.png)
+
+<h2 id="step-9">💾 9. Disaster Recovery with Velero</h2>
+
+Scheduled backups to S3, restore-tested against a real deleted environment:
+```bash
+velero backup get
+velero restore create --from-backup <backup-name> --include-namespaces myapp-dev
 kubectl get pods -n myapp-dev
 ```
 
-> ⚠️ Disable ArgoCD's `selfHeal` before restoring — otherwise ArgoCD reconciles the "missing" deployment back from Git before Velero finishes restoring it, masking whether the restore actually worked.
+![velero backup get — Completed backup](docs/screenshots/12-velero-backup-get.png)
+
+**Restore drill on `myapp-dev`** (chosen to keep `prod` untouched):
+
+| Before restore (deployment deleted) | After restore (`velero restore create`) |
+|---|---|
+| ![Before restore — deployment deleted](docs/screenshots/13-restore-before.png) | ![After restore — pods back Running](docs/screenshots/14-restore-after.png) |
+
+---
+
+<h2 id="full-system-checklist">✅ Full System Checklist</h2>
+
+**Control VM**
+- [x] SSH from laptop only succeeds from the declared `control-vm-sg` IP
+- [x] `aws sts get-caller-identity` returns an assumed IAM role, no static keys
+
+**HA Infrastructure**
+- [x] `terraform output k8s_api_lb_dns` returns a valid DNS name
+- [x] 5 K8s nodes `Ready`, correctly spread across 3 AZs
+- [x] `curl -k https://<k8s_api_lb_dns>:6443/healthz` returns `ok`
+
+**DNS / TLS**
+- [x] DNS resolves to the correct Route53-declared IP
+- [x] `curl https://<domain>` raises no certificate errors
+- [x] `kubectl get certificate -A` reports `READY: True`
+
+**CI/CD & GitOps**
+- [x] Tag push on `app-code` → all 4 pipeline stages pass → `helm-chart` auto-committed
+- [x] All 3 ArgoCD Applications `Synced` + `Healthy`
+- [x] No plaintext secrets in Git — only `SealedSecret`
+
+**Observability**
+- [x] Grafana reachable, default cluster dashboards visible
+- [x] `PodCrashLooping` alert present (`kubectl get prometheusrule -A`)
+
+**Backup & DR**
+- [x] EBS CSI Driver active (`kubectl get storageclass`)
+- [x] At least one `Completed` Velero backup
+- [x] Restore drill performed at least once (delete namespace → restore)
 
 ---
 
 <h2 id="troubleshooting-lessons-learned">⚠️ Troubleshooting & Lessons Learned</h2>
 
-Building this stack manually — Terraform, HA `kubeadm`, and a full GitOps/observability toolchain, with no managed services anywhere — surfaced a long list of real-world issues. Below are the most significant ones:
+This platform was built end-to-end, and every real failure was logged and fixed rather than glossed over. A representative sample:
 
-| # | Problem | Root Cause | Fix |
-|---|---|---|---|
-| 1 | `control-vm` could reach nothing — SSH hung, `kubectl` timed out via the NLB | `control-vm` was created in the AWS *default* VPC before Terraform's VPC existed — two separate, unrouted VPCs | Recreate `control-vm` inside the Terraform-managed VPC + public subnet, after backing up local Terraform code |
-| 2 | 2 `calico-node` pods stuck `READY 0/1`, log: `BIRD is not ready` | Security Group `k8s` had no rule for port `5473` (Typha) — Calico couldn't sync config to render BGP | Add `ingress { from_port=5473 to_port=5473 protocol="tcp" self=true }` to the SG, `terraform apply`, delete the stuck pod |
-| 3 | `curl` to port 80 gave `Connection refused` despite an `iptables REDIRECT` to the NodePort | `REDIRECT` is a *terminating target* — it short-circuits the packet before `kube-proxy`'s `KUBE-SERVICES` chain can NAT it to the right pod | Drop `iptables REDIRECT`; reinstall `ingress-nginx` with `hostNetwork=true` + `kind=DaemonSet` so it binds ports 80/443 directly |
-| 4 | Grafana wouldn't load; Loki datasource failed with `parse error: unexpected IDENTIFIER` | SG missing a rule for port 3000; separately, `loki-stack`'s default image tag (`2.6.1`) was too old for Grafana 13.x's newer health-check query | Open port 3000 for the client IP; `helm upgrade loki -n monitoring grafana/loki-stack --reuse-values --set loki.image.tag=2.9.3` |
-| 5 | Alertmanager → Telegram config `helm upgrade` failed: `undefined receiver "null" used in route` | `kube-prometheus-stack` ships a hidden default route for the `Watchdog` alert pointing at a `null` receiver; overriding `receivers:` without keeping `null` breaks the Operator's reconcile | Declare an explicit empty `null` receiver alongside `telegram` in the override values |
-| 6 | Sealed Secrets: `helm repo add` 404'd, then `kubeseal` failed with `services "sealed-secrets-controller" not found` | Upstream repo `bitnami-labs.github.io` had merged into `bitnami.github.io`; separately, the Helm release name (`sealed-secrets`) creates a Service named `sealed-secrets`, not the CLI's hardcoded default `sealed-secrets-controller` | Use `https://bitnami.github.io/sealed-secrets`; pass `--controller-name=sealed-secrets --controller-namespace=kube-system` explicitly to `kubeseal` |
-| 7 | `argocd-applicationset-controller` stuck `CrashLoopBackOff` after applying its CRD | `kubectl apply` (client-side) hit the 256KB hard limit on the `last-applied-configuration` annotation — the `ApplicationSet` CRD schema is too large | `kubectl apply --server-side --force-conflicts -f applicationset-crd.yaml` |
-| 8 | A single `SealedSecret` worked in `dev` but failed to decrypt in `staging`/`prod`: `no key could decrypt secret` | `kubeseal`'s default scope binds the ciphertext to one exact `(namespace, name)` pair — it isn't portable across namespaces | Seal the same plaintext secret once **per namespace** (`dev`, `staging`, `prod`), and add `ignoreDifferences` in the ArgoCD `Application` to avoid false `OutOfSync` on the `status` field |
-| 9 | GitLab CE hung for tens of minutes during `gitlab-ctl reconfigure` | Not CPU or disk — genuinely out of RAM on a `t3.medium` (4GB); CPU usage looked deceptively low (~49%) the whole time | Move `gitlab-vm` to an 8GB-RAM instance type |
-| 10 | ArgoCD domain (`argocd.yourdomain.com`) got `connection refused` on the Let's Encrypt HTTP-01 challenge, even with correct DNS | The DNS record pointed at a **master** node, but `ingress-nginx` (DaemonSet, `hostNetwork`) never schedules onto control-plane nodes (`NoSchedule` taint) — nothing was listening there | Point the DNS record at a **worker** node's IP, confirmed via `kubectl get pods -n ingress-nginx -o wide` |
+| # | Area | Problem | Root Cause | Fix |
+|---|---|---|---|---|
+| 1 | Terraform (HCL) | `terraform init` failed with `Error: Invalid single-argument block definition` | `ingress`/`egress`/`filter` blocks were written with multiple attributes on a single line — HCL only allows single-line blocks with exactly one attribute | Rewrote all affected blocks to one attribute per line |
+| 2 | NLB / Cluster Join | `kubeadm join --control-plane`/`join` from `master-2/3` and the workers hung indefinitely with `Connection timed out` against the NLB DNS, while `control-vm` itself worked fine | The NLB was `internal = false` (internet-facing) with cross-zone load balancing disabled | Set `internal = true` and `enable_cross_zone_load_balancing = true` |
+| 3 | GitLab CE | `gitlab-ctl reconfigure` hung for tens of minutes; CPU sat around ~49%, so the cause wasn't obvious | RAM exhaustion (4GB), not CPU — RAM throttling doesn't always show up clearly in CPU metrics | Upgraded to `m7i-flex.large` (8GB RAM) |
+| 4 | ArgoCD | `argocd-applicationset-controller` CrashLoopBackOff; `kubectl apply` on the ArgoCD CRDs failed with `metadata.annotations: Too long: must have at most 262144 bytes` | The `ApplicationSet` CRD schema exceeds the 256KB client-side `last-applied-configuration` annotation limit, even when applied file-by-file | `kubectl apply --server-side --force-conflicts` |
+| 5 | Sealed Secrets | A `SealedSecret` sealed once and reused across `dev`/`staging`/`prod` failed to decrypt in 2 of the 3 namespaces (`no key could decrypt secret`) | `kubeseal`'s default scope binds the ciphertext to one exact `(namespace, name)` pair | Seal a separate `SealedSecret` per namespace, and add `ignoreDifferences` in ArgoCD to avoid false `OutOfSync` on the `status` field |
+| 6 | Ingress / TLS | A domain pointed at a master node's IP got `connection refused` on the Let's Encrypt HTTP-01 challenge | The `ingress-nginx-controller` DaemonSet (`hostNetwork: true`) is not scheduled onto control-plane nodes, which carry a `NoSchedule` taint | Point DNS at the IP of a **worker** node actually running the Ingress pod (`kubectl get pods -n ingress-nginx -o wide` to confirm) |
+| 7 | etcd / HA | After stopping/starting EC2 instances for a break, `kube-apiserver` crash-looped with `RAFT NO LEADER` | The 3 master nodes were started one at a time rather than together — etcd requires 2 of 3 members up to maintain quorum | Start all master nodes together (near-simultaneously) when resuming the cluster |
 
-*(The full internal incident log covers 60+ issues across Terraform/HCL syntax, NLB hairpinning, etcd quorum on EC2 stop/start, DNS TTL caching, and more.)*
+> The full deployment log — with 9 issue groups and 40+ documented real errors, root causes, and fixes across Terraform, cluster bootstrap, CNI, Ingress/TLS, registry/Docker, CI/CD & ArgoCD, observability, Velero, and HTTPS for internal tooling — is maintained separately as the project's incident journal.
+
+---
+
+<h2 id="lessons-learned-summary">🎓 Lessons Learned Summary</h2>
+
+1. **Bastion/control VM must live in the same VPC** as the cluster to avoid routing/SG surprises.
+2. **Avoid overwriting entire `.tf` files for Security Groups** — edit in place to avoid dropping previously configured rules.
+3. **`iptables REDIRECT` is the wrong tool for port 80/443 → NodePort mapping** — a `hostNetwork` DaemonSet Ingress Controller is the correct, stable approach.
+4. **RAM exhaustion is an underrated cause of services "randomly" freezing** — check CPU → status checks → disk I/O → **RAM**, since throttling doesn't always show up in CPU%.
+5. **Large-schema CRDs (ApplicationSet, cert-manager, Prometheus Operator) need `--server-side --force-conflicts`** with `kubectl apply`.
+6. **SealedSecrets are not multi-environment by default** — seal per-namespace, and manage separately from a shared Helm chart.
+7. **`ignoreDifferences` in ArgoCD is essential** whenever a controller writes runtime fields back onto managed resources.
+8. **SSH between EC2s in the same VPC should use private IPs**, not public IPs — public-IP hairpinning behavior is inconsistent.
+9. **EC2 instances without an Elastic IP change their public IP on every Stop/Start** — any DNS record pointed directly at a node IP needs to be re-checked after a resume.
+10. **etcd needs 2/3 quorum** — start all HA master nodes together when resuming a stopped cluster.
+11. **DaemonSet + `hostNetwork` Ingress won't schedule on tainted control-plane nodes** — always verify with `kubectl get pods -o wide` before pointing DNS.
+12. **DNS caching is per-machine and TTL-bound** — don't conclude "DNS hasn't propagated" from a single host; Pod-level (CoreDNS) cache is independent from node OS cache.
 
 ---
 
 <h2 id="future-production-improvements">🔮 Production Gaps & Future Improvements</h2>
 
-This project was built for hands-on learning and portfolio demonstration. In a real-world production system, the following would additionally be required:
+This project was built for hands-on learning and portfolio demonstration. For a genuine production rollout, the following would still be needed:
 
-- **IAM least-privilege**: replace the `AdministratorAccess` role on `control-vm` with a scoped policy for exactly the actions Terraform needs.
-- **etcd/control-plane resilience**: automated, staggered start-up procedure for the 3 master nodes to avoid losing `etcd` quorum after a stop/start cycle.
-- **Network Policies & RBAC**: namespace isolation and least-privilege Kubernetes RBAC across all deployed components.
-- **Automated testing**: unit/integration tests as a required pipeline stage before the Docker build.
-- **Multi-region DR**: cross-region S3 replication for Velero backups and Terraform state.
-- **Config drift detection**: scheduled `terraform plan` in CI to catch manual console changes before they compound.
-- **Secrets rotation**: automated rotation policy for Sealed Secrets and the Harbor/GitLab service accounts.
+- **Managed control plane or a hardened HA story**: consider EKS, or add etcd snapshotting/monitoring beyond Velero's fs-backup.
+- **GitLab/Harbor backup & DR**: currently out of the original lab scope — only the Kubernetes workloads are covered by Velero.
+- **Automated per-environment chart updates**: the `update-chart` CI job should update all of `values-dev/staging/prod.yaml`, not just the root `values.yaml`.
+- **External secret manager**: migrate from Sealed Secrets to Vault/AWS Secrets Manager for centralized rotation and audit.
+- **Network Policies & tighter RBAC**: enforce least-privilege namespace isolation.
+- **WAF / rate limiting** in front of the public Ingress.
 
 ---
 
@@ -291,5 +364,6 @@ This project was built for hands-on learning and portfolio demonstration. In a r
 
 **Doan Minh Hiep**
 
-*   **GitHub**: [@minhhiep05](https://github.com/minhhiep05)
-*   **Email**: [doanhiep169@gmail.com](mailto:doanhiep169@gmail.com)
+* **GitHub**: [@minhhiep05](https://github.com/minhhiep05)
+* **GitLab**: [@doanhiep169](https://gitlab.com/doanhiep169)
+* **Email**: [doanhiep169@gmail.com](mailto:doanhiep169@gmail.com)
