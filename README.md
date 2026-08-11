@@ -1,6 +1,7 @@
 # ☸️ Production-Grade GitOps CI/CD Platform on AWS (HA Kubernetes + GitLab + Harbor + ArgoCD)
 
-[![GitLab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/doanhiep169/app-code?branch=main&style=flat-square&logo=gitlab&logoColor=white)](https://gitlab.com/doanhiep169/app-code/-/commits/main)
+[![Pipeline](https://img.shields.io/badge/pipeline-passed-brightgreen?style=flat-square&logo=gitlab&logoColor=white)](#step-4)
+> ℹ️ The pipeline badge above is **static** (a snapshot of the last passing run) — the GitLab CE instance here is **self-hosted on EC2**, not gitlab.com, so shields.io's dynamic badge can't reach its API, especially while the EC2 instance is stopped to save cost.
 
 [![AWS](https://img.shields.io/badge/AWS-232F3E?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/)
 [![Terraform](https://img.shields.io/badge/Terraform-844FBA?style=for-the-badge&logo=terraform&logoColor=white)](https://www.terraform.io/)
