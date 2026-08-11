@@ -77,30 +77,57 @@ The entire journey — including every real error encountered along the way (Ter
 <h2 id="project-structure">📁 Project Structure</h2>
 
 ```text
-gitops-lab-aws/
-├── terraform/
-│   ├── versions.tf          # Provider pin + S3 backend (locked with DynamoDB)
-│   ├── variables.tf         # Region, instance types, admin_cidr
-│   ├── network.tf           # VPC + 3 public subnets across 3 AZs
-│   ├── security_groups.tf   # Least-privilege SGs (k8s, gitlab_harbor, control-vm)
-│   ├── iam.tf                # control-vm role + node role (Velero, no static creds)
-│   ├── loadbalancer.tf      # Internal NLB for the K8s API server (cross-zone)
-│   ├── instances.tf         # 3 master + 2 worker EC2s, spread across AZs
-│   └── keypair.tf
-├── app-code/                 # Application source
-│   ├── Dockerfile             # Multi-stage, npm stripped from runtime image
+CI-CD-GitOps-.../
+├── app-code/                   # Application source
 │   ├── src/
-│   └── .gitlab-ci.yml         # test → sast-scan → build (Trivy) → update-chart
-├── helm-chart/                # GitOps source of truth, watched by ArgoCD
+│   │   └── index.js
+│   ├── .gitlab-ci.yml           # test → sast-scan → build (Trivy) → update-chart
+│   ├── Dockerfile
+│   ├── package.json
+│   └── README.md
+├── argocd-manifests/
+│   ├── applicationset.yaml      # Fans out to myapp-dev / myapp-staging / myapp-prod
+│   └── applicationset.yaml.bak
+├── helm-chart/                  # GitOps source of truth, watched by ArgoCD
+│   ├── templates/
+│   │   ├── tests/
+│   │   │   └── test-connection.yaml
+│   │   ├── NOTES.txt
+│   │   ├── _helpers.tpl
+│   │   ├── deployment.yaml
+│   │   ├── hpa.yaml
+│   │   ├── httproute.yaml
+│   │   ├── ingress.yaml
+│   │   ├── service.yaml
+│   │   └── serviceaccount.yaml
+│   ├── .helmignore
 │   ├── Chart.yaml
+│   ├── README.md
 │   ├── values.yaml
 │   ├── values-dev.yaml
 │   ├── values-staging.yaml
-│   ├── values-prod.yaml
-│   └── templates/
-└── argocd/
-    └── applicationset.yaml    # Fans out to myapp-dev / myapp-staging / myapp-prod
+│   └── values-prod.yaml
+├── images/                      # README screenshots
+├── sealed-secrets/               # Per-namespace SealedSecrets (encryptedData, safe to commit)
+│   ├── README.md
+│   ├── sealed-secret-dev.yaml
+│   ├── sealed-secret-staging.yaml
+│   └── sealed-secret-prod.yaml
+├── terraform/                    # IaC: VPC, SGs, IAM, NLB, EC2 instances
+│   ├── iam.tf
+│   ├── instances.tf
+│   ├── keypair.tf
+│   ├── loadbalancer.tf
+│   ├── network.tf
+│   ├── security_groups.tf
+│   ├── variables.tf
+│   └── versions.tf
+├── .gitignore
+├── prep.sh                      # Node prep script (swap off, sysctl, containerd, kubeadm packages)
+├── prometheus-rule.yaml          # Minimum-viable alert rules (e.g. PodCrashLooping)
+└── README.md
 ```
+
 
 ---
 
