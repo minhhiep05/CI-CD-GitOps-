@@ -184,9 +184,9 @@ git push origin v0.1.0
 kubectl get nodes -o wide
 ```
 
-![8 EC2 instances in the AWS Console](docs/screenshots/01-ec2-instances.png)
-![Kubernetes nodes Ready](docs/screenshots/02-k8s-nodes-ready.png)
-![NLB target group healthy across all 3 masters](docs/screenshots/03-k8s-nlb-targets-healthy.png)
+![8 EC2 instances in the AWS Console](images/01-ec2-instances.png)
+![Kubernetes nodes Ready](images/02-k8s-nodes-ready.png)
+![NLB target group healthy across all 3 masters](images/03-k8s-nlb-targets-healthy.png)
 
 <h2 id="step-2">🔐 2. Secretless Control Plane (IAM Role, no static keys)</h2>
 
@@ -205,20 +205,20 @@ curl https://<your-domain>
 kubectl get certificate -A
 ```
 
-![cert-manager Certificate READY: True](docs/screenshots/18-certificate-ready.png)
-![Ingress-nginx pods scheduled on worker nodes only](docs/screenshots/19-ingress-pods-wide.png)
+![cert-manager Certificate READY: True](images/18-certificate-ready.png)
+![Ingress-nginx pods scheduled on worker nodes only](images/19-ingress-pods-wide.png)
 
 A second, separately documented pass (see NHÓM 9 in the deployment log) enables **real TLS on the internal admin tools** (GitLab, Harbor, ArgoCD) on a dedicated admin subdomain.
 
 | GitLab | Harbor | ArgoCD |
 |---|---|---|
-| ![HTTPS GitLab](docs/screenshots/15-https-gitlab.png) | ![HTTPS Harbor](docs/screenshots/16-https-harbor.png) | ![HTTPS ArgoCD](docs/screenshots/17-https-argocd.png) |
+| ![HTTPS GitLab](images/15-https-gitlab.png) | ![HTTPS Harbor](images/16-https-harbor.png) | ![HTTPS ArgoCD](images/17-https-argocd.png) |
 
 <h2 id="step-4">🚀 4. GitLab CI/CD Pipeline</h2>
 
 Every tagged commit runs all 4 stages — `test → sast-scan → build → update-chart` — the last of which commits the new image tag back into the Helm chart repo automatically.
 
-![GitLab pipeline — all 4 stages passed](docs/screenshots/04-gitlab-pipeline-passed.png)
+![GitLab pipeline — all 4 stages passed](images/04-gitlab-pipeline-passed.png)
 
 <h2 id="step-5">🐳 5. Private Registry with Vulnerability Scanning</h2>
 
@@ -228,8 +228,8 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:lates
   image --exit-code 1 --severity HIGH,CRITICAL $IMAGE:$CI_COMMIT_TAG
 ```
 
-![Trivy scan log inside the pipeline](docs/screenshots/05-trivy-scan-log.png)
-![Harbor repositories with pushed tags](docs/screenshots/06-harbor-repositories.png)
+![Trivy scan log inside the pipeline](images/05-trivy-scan-log.png)
+![Harbor repositories with pushed tags](images/06-harbor-repositories.png)
 
 <h2 id="step-6">🔄 6. GitOps Multi-Environment Delivery via ArgoCD</h2>
 
@@ -241,8 +241,8 @@ kubectl get applications -n argocd
 # myapp-prod      Synced   Healthy
 ```
 
-![ArgoCD — 3 Applications Synced & Healthy](docs/screenshots/07-argocd-applications.png)
-![kubectl get applications -n argocd — 3 environments](docs/screenshots/08-k8s-multi-environment.png)
+![ArgoCD — 3 Applications Synced & Healthy](images/07-argocd-applications.png)
+![kubectl get applications -n argocd — 3 environments](images/08-k8s-multi-environment.png)
 
 <h2 id="step-7">🔑 7. Secrets Management with Sealed Secrets</h2>
 
@@ -252,14 +252,14 @@ kubeseal --format yaml --controller-name=sealed-secrets --controller-namespace=k
   < secret.yaml > sealed-secret.yaml
 ```
 
-![sealed-secret.yaml committed to the helm-chart repo — encryptedData, not plaintext](docs/screenshots/09-sealedsecret-yaml.png)
+![sealed-secret.yaml committed to the helm-chart repo — encryptedData, not plaintext](images/09-sealedsecret-yaml.png)
 
 <h2 id="step-8">📊 8. Monitoring & Alerting</h2>
 
 `kube-prometheus-stack` ships Prometheus, Grafana, and Alertmanager, with a `PodCrashLooping` alert wired to Telegram for real-time notification.
 
-![Grafana cluster dashboard](docs/screenshots/10-grafana-dashboard.png)
-![Alertmanager notification received in Telegram](docs/screenshots/11-telegram-alert.png)
+![Grafana cluster dashboard](images/10-grafana-dashboard.png)
+![Alertmanager notification received in Telegram](images/11-telegram-alert.png)
 
 <h2 id="step-9">💾 9. Disaster Recovery with Velero</h2>
 
@@ -270,13 +270,13 @@ velero restore create --from-backup <backup-name> --include-namespaces myapp-dev
 kubectl get pods -n myapp-dev
 ```
 
-![velero backup get — Completed backup](docs/screenshots/12-velero-backup-get.png)
+![velero backup get — Completed backup](images/12-velero-backup-get.png)
 
 **Restore drill on `myapp-dev`** (chosen to keep `prod` untouched):
 
 | Before restore (deployment deleted) | After restore (`velero restore create`) |
 |---|---|
-| ![Before restore — deployment deleted](docs/screenshots/13-restore-before.png) | ![After restore — pods back Running](docs/screenshots/14-restore-after.png) |
+| ![Before restore — deployment deleted](images/13-restore-before.png) | ![After restore — pods back Running](images/14-restore-after.png) |
 
 ---
 
