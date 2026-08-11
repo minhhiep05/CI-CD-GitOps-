@@ -232,6 +232,7 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:lates
 ![Trivy scan log inside the pipeline](images/05-trivy-scan-log.png)
 ![Harbor repositories with pushed tags](images/06-harbor-repositories.png)
 
+> ℹ️ Harbor's own **Vulnerabilities**/**SBOM** columns may show `Unsupported` here — that's independent of the Trivy scan above. Harbor only populates them once its own scanner (Interrogation Services) is registered and triggered, either via "Automatically scan on push" or a manual **Scan** action; gating on Trivy inside the CI pipeline before the image is even pushed is the stricter check.
 <h2 id="step-6">🔄 6. GitOps Multi-Environment Delivery via ArgoCD</h2>
 
 A single `ApplicationSet` generates 3 independent ArgoCD Applications from one Helm chart:
