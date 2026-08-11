@@ -236,12 +236,11 @@ kubectl get certificate -A
 ![cert-manager Certificate READY: True](images/18-certificate-ready.png)
 ![Ingress-nginx pods scheduled on worker nodes only](images/19-ingress-pods-wide.png)
 
-A second, separately documented pass (see NHÓM 9 in the deployment log) enables **real TLS on the internal admin tools** (GitLab, Harbor, ArgoCD) on a dedicated admin subdomain.
+All three admin tools resolve over valid HTTPS, with no browser certificate warnings:
 
-| GitLab | Harbor | ArgoCD |
+| GitLab — `gitlab.devopshiep.shop` | Harbor — `harbor.devopshiep.shop` | ArgoCD — `argocd1.devopshiep.shop` |
 |---|---|---|
 | ![HTTPS GitLab](images/15-https-gitlab.png) | ![HTTPS Harbor](images/16-https-harbor.png) | ![HTTPS ArgoCD](images/17-https-argocd.png) |
-
 <h2 id="step-4">🚀 4. GitLab CI/CD Pipeline</h2>
 
 Every tagged commit runs all 4 stages — `test → sast-scan → build → update-chart` — the last of which commits the new image tag back into the Helm chart repo automatically.
